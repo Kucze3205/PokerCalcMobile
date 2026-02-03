@@ -1,10 +1,11 @@
 // ignore: file_names
 import 'dart:isolate';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../models/cardModel.dart';
 import '../models/simulator.dart';
-
 
 
 class MainViewModel extends ChangeNotifier {
@@ -14,18 +15,32 @@ class MainViewModel extends ChangeNotifier {
   final List<CardModel> cardsOnTable = [];
   final List<CardModel> _inGameCards = [];
   final List<CardModel> _hand = [];
-  late final Simulator simulator;
+
   Isolate? isolate;
   final responsePort = ReceivePort();
   String result = '';
   bool addCards = true;
   int playersNum = 2;
-  bool _isSimulating = false;
+  late Map<String, int> hierarchy = {};
 
   MainViewModel() {
     _initDeck();
-    simulator = Simulator();
-    simulator.sendValue = _receiveValue;
+    _loadHierarchy();
+    responsePort.listen((message) {
+      if (message is double) {
+        _receiveValue(message);
+      }
+    });
+  }
+
+  Future<void> _loadHierarchy() async {
+    try {
+      String jsonContent = await rootBundle.loadString("assets/cards_hierarhy/full_hierarhy5.json");
+      final Map<String, dynamic> jsonMap = jsonDecode(jsonContent);
+      hierarchy = jsonMap.cast<String, int>();
+    } catch (e) {
+      print('Error loading hierarchy: $e');
+    }
   }
 
   // Inicjalizacja talii
@@ -41,8 +56,6 @@ class MainViewModel extends ChangeNotifier {
   }
 
   void onCardSelected(String str) {
-    _isSimulating = false; // Anulowanie poprzedniej operacji
-
     CardModel card = CardModel(str);
     // Dodawanie kart
     if (_hand.length == 2) {
@@ -58,23 +71,17 @@ class MainViewModel extends ChangeNotifier {
 
     // Symulacja
     if (_hand.length == 2) {
-      _isSimulating = true;
       Isolate.spawn(
         runSimulation,
         {
-          'simulator': simulator,
           'first': _hand[0],
           'second': _hand[1],
           'inGameCards': List<CardModel>.from(_inGameCards),
           'playersNum': playersNum,
           'mainPort': responsePort.sendPort,
+          'hierarchy': hierarchy,
         },
       );
-      responsePort.listen((message) {
-        if (message is double) {
-          _receiveValue(message);
-        }
-      });
     }
   }
 
@@ -86,7 +93,6 @@ class MainViewModel extends ChangeNotifier {
     myCards.clear();
     result = '';
     addCards = true;
-    _isSimulating = false;
     for (var card in deck) {
       card.visibility = true;
     }
@@ -95,8 +101,8 @@ class MainViewModel extends ChangeNotifier {
 
   // Odbiór wyniku z symulatora
   void _receiveValue(double value) async {
+    await Future.delayed(const Duration(milliseconds: 100));
     result = '${(value * 100).toStringAsFixed(2)}%';
     notifyListeners();
-    await Future.delayed(Duration(milliseconds: 350));
   }
 }

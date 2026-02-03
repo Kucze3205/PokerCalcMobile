@@ -8,13 +8,16 @@ import 'dart:isolate';
 typedef SendValueCallback = void Function(double result);
 
 void runSimulation(Map args) {
-  final simulator = args['simulator'] as Simulator;
   final CardModel first = args['first'];
   final CardModel second = args['second'];
   final List<CardModel> inGameCards = args['inGameCards'];
   final int playersNum = args['playersNum'];
   final SendPort mainPort = args['mainPort'];
+  final Map<String, int> hierarchy = args['hierarchy'] as Map<String, int>;
   final int simulations = 10000;
+
+  final simulator = Simulator();
+  simulator.fullHierarchy = hierarchy;
 
   simulator.probability(
     first,
@@ -30,18 +33,7 @@ class Simulator {
   SendValueCallback? sendValue;
   List<int> combination = [];
   
-  late Map<String, int> fullHierarchy;
-
-  Simulator(){
-    loadHierarchy();
-  }
-
-  // Ładowanie hierarchii z assets (asynchronicznie)
-  Future<void> loadHierarchy() async {
-    String jsonContent = await rootBundle.loadString("assets/cards_hierarhy/full_hierarhy5.json");
-    final Map<String, dynamic> jsonMap = jsonDecode(jsonContent);
-    fullHierarchy = jsonMap.map((key, value) => MapEntry(key, value as int));
-  }
+  Map<String, int> fullHierarchy = {};
 
   // Symulacja rozdań
   void probability(
@@ -102,9 +94,9 @@ class Simulator {
       games++;
       if (win) wins++;
 
-      if (sendValue != null && counter % 500 == 0) {
-        sendValue!(wins / games);
-        mainPort?.send(wins / games);
+      if (counter % 500 == 0) {
+        final probability = wins / games;
+        mainPort?.send(probability);
       }
     }
   }
