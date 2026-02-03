@@ -1,7 +1,5 @@
 // ignore: file_names
-import 'dart:convert';
 import 'dart:math';
-import 'package:flutter/services.dart' show rootBundle;
 import 'cardModel.dart';
 import 'dart:isolate';
 
@@ -14,7 +12,7 @@ void runSimulation(Map args) {
   final int playersNum = args['playersNum'];
   final SendPort mainPort = args['mainPort'];
   final Map<String, int> hierarchy = args['hierarchy'] as Map<String, int>;
-  final int simulations = 10000;
+  final int updateEvery = args['updateEvery'] ?? 2000;
 
   final simulator = Simulator();
   simulator.fullHierarchy = hierarchy;
@@ -24,7 +22,7 @@ void runSimulation(Map args) {
     second,
     inGameCards,
     playersNum,
-    simulations,
+    updateEvery,
     mainPort,
   );
 }
@@ -41,14 +39,14 @@ class Simulator {
     CardModel second,
     List<CardModel> table,
     int players,
-    int simulations,
+    int updateEvery,
     SendPort? mainPort
   ){
     const String type = "hdcs";
     final Random rnd = Random();
     int games = 0, wins = 0;
 
-    for (int counter = 1; counter <= simulations; counter++) {
+    for (int counter = 1; ; counter++) {
       final Set<String> handCards = {first.id, second.id};
       bool win = true;
       List<CardModel> actTable = List<CardModel>.from(table);
@@ -94,7 +92,7 @@ class Simulator {
       games++;
       if (win) wins++;
 
-      if (counter % 500 == 0) {
+      if (counter % updateEvery == 0) {
         final probability = wins / games;
         mainPort?.send(probability);
       }

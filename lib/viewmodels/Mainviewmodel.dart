@@ -55,7 +55,10 @@ class MainViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void onCardSelected(String str) {
+  Future<void> onCardSelected(String str) async {
+    isolate?.kill(priority: Isolate.immediate);
+    isolate = null;
+
     CardModel card = CardModel(str);
     // Dodawanie kart
     if (_hand.length == 2) {
@@ -71,7 +74,7 @@ class MainViewModel extends ChangeNotifier {
 
     // Symulacja
     if (_hand.length == 2) {
-      Isolate.spawn(
+      isolate = await Isolate.spawn(
         runSimulation,
         {
           'first': _hand[0],
@@ -80,6 +83,7 @@ class MainViewModel extends ChangeNotifier {
           'playersNum': playersNum,
           'mainPort': responsePort.sendPort,
           'hierarchy': hierarchy,
+          'updateEvery': 5000,
         },
       );
     }
@@ -87,6 +91,8 @@ class MainViewModel extends ChangeNotifier {
 
   // Resetowanie stanu
   void reset() {
+    isolate?.kill(priority: Isolate.immediate);
+    isolate = null;
     _inGameCards.clear();
     _hand.clear();
     cardsOnTable.clear();
@@ -100,8 +106,8 @@ class MainViewModel extends ChangeNotifier {
   }
 
   // Odbiór wyniku z symulatora
-  void _receiveValue(double value) async {
-    await Future.delayed(const Duration(milliseconds: 100));
+  void _receiveValue(double value) {
+    //await Future.delayed(const Duration(milliseconds: 4000));
     result = '${(value * 100).toStringAsFixed(2)}%';
     notifyListeners();
   }
