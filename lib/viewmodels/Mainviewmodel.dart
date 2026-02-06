@@ -105,6 +105,11 @@ class MainViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updatePlayersNum(int value) {
+    playersNum = value;
+    notifyListeners();
+  }
+
   // Odbiór wyniku z symulatora
   void _receiveValue(double value) {
     //await Future.delayed(const Duration(milliseconds: 4000));

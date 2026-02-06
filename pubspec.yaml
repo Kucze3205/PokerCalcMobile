@@ -15,6 +15,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_riverpod: ^2.0.0 
+  flutter_svg: ^2.0.10
 
   
   cupertino_icons: ^1.0.8
@@ -32,4 +33,5 @@ flutter:
   assets:
     - assets/cards_hierarhy/
     - assets/Graphics/
+    - assets/Graphics_svg/
     
