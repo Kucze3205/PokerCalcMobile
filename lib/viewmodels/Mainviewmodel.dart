@@ -60,6 +60,15 @@ class MainViewModel extends ChangeNotifier {
     isolate = null;
 
     CardModel card = CardModel(str);
+    
+    // Hide selected card from deck
+    for (var deckCard in deck) {
+      if (deckCard.id == str) {
+        deckCard.visibility = false;
+        break;
+      }
+    }
+    
     // Dodawanie kart
     if (_hand.length == 2) {
       _inGameCards.add(card);
