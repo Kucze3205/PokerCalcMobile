@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import '../models/cardModel.dart';
 import '../models/simulator.dart';
 
-
 class MainViewModel extends ChangeNotifier {
   // Pola
   final List<CardModel> deck = [];
@@ -21,7 +20,7 @@ class MainViewModel extends ChangeNotifier {
   String result = '';
   bool addCards = true;
   int playersNum = 2;
-  late Map<String, int> hierarchy = {};
+  Map<String, int> hierarchy = {};
 
   MainViewModel() {
     _initDeck();
@@ -35,11 +34,13 @@ class MainViewModel extends ChangeNotifier {
 
   Future<void> _loadHierarchy() async {
     try {
-      String jsonContent = await rootBundle.loadString("assets/cards_hierarhy/full_hierarhy5.json");
+      String jsonContent = await rootBundle.loadString(
+        "assets/cards_hierarhy/full_hierarhy5.json",
+      );
       final Map<String, dynamic> jsonMap = jsonDecode(jsonContent);
       hierarchy = jsonMap.cast<String, int>();
     } catch (e) {
-      print('Error loading hierarchy: $e');
+      debugPrint('Error loading hierarchy: $e');
     }
   }
 
@@ -60,7 +61,7 @@ class MainViewModel extends ChangeNotifier {
     isolate = null;
 
     CardModel card = CardModel(str);
-    
+
     // Hide selected card from deck
     for (var deckCard in deck) {
       if (deckCard.id == str) {
@@ -68,7 +69,7 @@ class MainViewModel extends ChangeNotifier {
         break;
       }
     }
-    
+
     // Dodawanie kart
     if (_hand.length == 2) {
       _inGameCards.add(card);
@@ -83,18 +84,49 @@ class MainViewModel extends ChangeNotifier {
 
     // Symulacja
     if (_hand.length == 2) {
-      isolate = await Isolate.spawn(
-        runSimulation,
-        {
-          'first': _hand[0],
-          'second': _hand[1],
-          'inGameCards': List<CardModel>.from(_inGameCards),
-          'playersNum': playersNum,
-          'mainPort': responsePort.sendPort,
-          'hierarchy': hierarchy,
-          'updateEvery': 5000,
-        },
-      );
+      isolate = await Isolate.spawn(runSimulation, {
+        'first': _hand[0],
+        'second': _hand[1],
+        'inGameCards': List<CardModel>.from(_inGameCards),
+        'playersNum': playersNum,
+        'mainPort': responsePort.sendPort,
+        'hierarchy': hierarchy,
+        'updateEvery': 5000,
+      });
+    }
+  }
+
+  Future<void> removeCard(String cardId) async {
+    isolate?.kill(priority: Isolate.immediate);
+    isolate = null;
+
+    result = '';
+
+    for (final deckCard in deck) {
+      if (deckCard.id == cardId) {
+        deckCard.visibility = true;
+        break;
+      }
+    }
+
+    _hand.removeWhere((c) => c.id == cardId);
+    myCards.removeWhere((c) => c.id == cardId);
+    _inGameCards.removeWhere((c) => c.id == cardId);
+    cardsOnTable.removeWhere((c) => c.id == cardId);
+
+    addCards = true;
+    notifyListeners();
+
+    if (_hand.length == 2) {
+      isolate = await Isolate.spawn(runSimulation, {
+        'first': _hand[0],
+        'second': _hand[1],
+        'inGameCards': List<CardModel>.from(_inGameCards),
+        'playersNum': playersNum,
+        'mainPort': responsePort.sendPort,
+        'hierarchy': hierarchy,
+        'updateEvery': 5000,
+      });
     }
   }
 
