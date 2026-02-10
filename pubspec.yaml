@@ -9,13 +9,11 @@ version: 1.0.0+1
 environment:
   sdk: ^3.9.0
 
-
-
 dependencies:
   flutter:
     sdk: flutter
   flutter_riverpod: ^2.0.0 
-
+  flutter_svg: ^2.0.10
   
   cupertino_icons: ^1.0.8
 
@@ -25,6 +23,7 @@ dev_dependencies:
 
   
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
 
 
 flutter:
@@ -32,4 +31,10 @@ flutter:
   assets:
     - assets/cards_hierarhy/
     - assets/Graphics/
+    - assets/Graphics_svg/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon.png
     
