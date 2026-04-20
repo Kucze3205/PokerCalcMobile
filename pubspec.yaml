@@ -9,8 +9,6 @@ version: 1.0.0+1
 environment:
   sdk: ^3.9.0
 
-
-
 dependencies:
   flutter:
     sdk: flutter
@@ -25,6 +23,7 @@ dev_dependencies:
 
   
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
 
 
 flutter:
@@ -33,4 +32,9 @@ flutter:
     - assets/cards_hierarhy/
     - assets/Graphics/
     - assets/Graphics_svg/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon.png
     

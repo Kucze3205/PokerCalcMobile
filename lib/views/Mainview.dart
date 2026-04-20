@@ -1,29 +1,15 @@
 // ignore: file_names
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import '../theme/app_colors.dart';
 import '../viewmodels/Mainviewmodel.dart';
-import '../converter/imagepathconverter.dart';
+import '../widgets/deck_picker.dart';
+import '../widgets/hand_section.dart';
+import '../widgets/main_header.dart';
+import '../widgets/table_section.dart';
 
 // Provider dla MainViewModel (Riverpod)
 final mainViewModelProvider = ChangeNotifierProvider((ref) => MainViewModel());
-
-// Color scheme
-class AppColors {
-  static const Color background = Color(0xFF0D1B2A);
-  static const Color surface = Color(0xFF1B2838);
-  static const Color surfaceLight = Color(0xFF243447);
-  static const Color accent = Color(0xFF00D9FF);
-  static const Color accentGold = Color(0xFFFFD700);
-  static const Color success = Color(0xFF4CAF50);
-  static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xFFB0BEC5);
-  static const Color cardSlot = Color(0xFF2A3F54);
-  static const Color hearts = Color(0xFFE53935);
-  static const Color diamonds = Color(0xFF2196F3);
-  static const Color clubs = Color(0xFF4CAF50);
-  static const Color spades = Color(0xFF424242);
-}
 
 class MainView extends ConsumerWidget {
   const MainView({super.key});
@@ -40,8 +26,8 @@ class MainView extends ConsumerWidget {
         child: Column(
           children: [
             // Header
-            _buildHeader(vm),
-            
+            MainHeader(vm: vm),
+
             // Main content
             Expanded(
               child: SingleChildScrollView(
@@ -49,33 +35,29 @@ class MainView extends ConsumerWidget {
                 child: Column(
                   children: [
                     const SizedBox(height: 16),
-                    
-                    // Your hand section
-                    _buildHandSection(vm, isSmallScreen),
-                    
+
+                    // Your hand + win probability (single section)
+                    HandSection(vm: vm, isSmallScreen: isSmallScreen),
+
                     const SizedBox(height: 20),
-                    
+
                     // Table cards section
-                    _buildTableSection(vm, isSmallScreen),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Result section
-                    _buildResultSection(vm),
-                    
+                    TableSection(vm: vm, isSmallScreen: isSmallScreen),
+
                     const SizedBox(height: 20),
                   ],
                 ),
               ),
             ),
-            
+
             // Card deck picker
-            _buildDeckPicker(vm, isSmallScreen),
+            DeckPicker(vm: vm, isSmallScreen: isSmallScreen),
           ],
         ),
       ),
     );
   }
+<<<<<<< HEAD
 
   Widget _buildHeader(MainViewModel vm) {
     return Container(
@@ -686,3 +668,6 @@ class MainView extends ConsumerWidget {
     );
   }
 }
+=======
+}
+>>>>>>> 266db046806ad24640318b4e513edbf56017cbd5
