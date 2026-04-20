@@ -250,8 +250,9 @@ class MainView extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(5, (index) {
             String label = '';
-            if (index < 3) label = 'Flop';
-            else if (index == 3) label = 'Turn';
+            if (index < 3) {
+              label = 'Flop';
+            } else if (index == 3) label = 'Turn';
             else label = 'River';
             
             return Padding(
