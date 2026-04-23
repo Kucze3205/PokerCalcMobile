@@ -9,6 +9,23 @@ import '../models/simulator.dart';
 
 class MainViewModel extends ChangeNotifier {
   // Pola
+  static const List<String> suits = ['h', 'd', 'c', 's'];
+  static const List<String> ranks = [
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '10',
+    'J',
+    'Q',
+    'K',
+    'A',
+  ];
+
   final List<CardModel> deck = [];
   final List<CardModel> myCards = [];
   final List<CardModel> cardsOnTable = [];
@@ -19,6 +36,7 @@ class MainViewModel extends ChangeNotifier {
   final responsePort = ReceivePort();
   String result = '';
   bool addCards = true;
+  String? selectedSuit;
   int playersNum = 2;
   Map<String, int> hierarchy = {};
 
@@ -56,19 +74,49 @@ class MainViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void selectSuit(String suit) {
+    if (!addCards) return;
+    if (!suits.contains(suit)) return;
+    selectedSuit = suit;
+    notifyListeners();
+  }
+
+  void clearSuitSelection() {
+    if (selectedSuit == null) return;
+    selectedSuit = null;
+    notifyListeners();
+  }
+
+  bool isCardAvailable(String suit, String rank) {
+    final cardId = '$suit$rank';
+    for (final card in deck) {
+      if (card.id == cardId) {
+        return card.visibility;
+      }
+    }
+    return false;
+  }
+
   Future<void> onCardSelected(String str) async {
     isolate?.kill(priority: Isolate.immediate);
     isolate = null;
 
-    CardModel card = CardModel(str);
-
-    // Hide selected card from deck
-    for (var deckCard in deck) {
+    CardModel? pickedDeckCard;
+    for (final deckCard in deck) {
       if (deckCard.id == str) {
-        deckCard.visibility = false;
+        pickedDeckCard = deckCard;
         break;
       }
     }
+
+    if (pickedDeckCard == null || !pickedDeckCard.visibility) {
+      return;
+    }
+
+    CardModel card = CardModel(str);
+
+    // Hide selected card from deck
+    pickedDeckCard.visibility = false;
 
     // Dodawanie kart
     if (_hand.length == 2) {
@@ -80,6 +128,7 @@ class MainViewModel extends ChangeNotifier {
     }
 
     if (cardsOnTable.length == 5) addCards = false;
+    selectedSuit = null;
     notifyListeners();
 
     // Symulacja
@@ -115,6 +164,7 @@ class MainViewModel extends ChangeNotifier {
     cardsOnTable.removeWhere((c) => c.id == cardId);
 
     addCards = true;
+    selectedSuit = null;
     notifyListeners();
 
     if (_hand.length == 2) {
@@ -140,6 +190,7 @@ class MainViewModel extends ChangeNotifier {
     myCards.clear();
     result = '';
     addCards = true;
+    selectedSuit = null;
     for (var card in deck) {
       card.visibility = true;
     }

@@ -1,6 +1,8 @@
 // ignore: file_names
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../converter/imagepathconverter.dart';
 import '../theme/app_colors.dart';
 import '../viewmodels/Mainviewmodel.dart';
 import '../widgets/deck_picker.dart';
@@ -57,7 +59,6 @@ class MainView extends ConsumerWidget {
       ),
     );
   }
-<<<<<<< HEAD
 
   Widget _buildHeader(MainViewModel vm) {
     return Container(
@@ -668,6 +669,3 @@ class MainView extends ConsumerWidget {
     );
   }
 }
-=======
-}
->>>>>>> 266db046806ad24640318b4e513edbf56017cbd5
