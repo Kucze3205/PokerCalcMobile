@@ -22,6 +22,12 @@ class AppColors {
   static const Color clubs = Color(0xFF0B7A4A);
   static const Color spades = Color(0xFF0B6D5F);
 
+  // Traditional card suit colors for suit buttons
+  static const Color heartsRed = Color(0xFFE53935);
+  static const Color diamondsRed = Color(0xFFE53935);
+  static const Color clubsWhite = Color(0xFFEEEEEE);
+  static const Color spadesGray = Color(0xFF9E9E9E);
+
   static Color withOpacity(Color color, double opacity) {
     final int alpha = _clampAlpha((opacity * 255).round());
     return color.withAlpha(alpha);
