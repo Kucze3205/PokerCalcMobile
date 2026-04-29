@@ -36,6 +36,7 @@ class MainViewModel extends ChangeNotifier {
   final responsePort = ReceivePort();
   String result = '';
   bool addCards = true;
+  bool hierarchyLoaded = false;
   String? selectedSuit;
   int playersNum = 2;
   Map<String, int> hierarchy = {};

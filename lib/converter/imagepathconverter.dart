@@ -26,7 +26,7 @@ String imagePathConverter(String id) {
     case "d11": return "assets/Graphics_svg/jack_of_diamonds.svg";
     case "d12": return "assets/Graphics_svg/queen_of_diamonds.svg";
     case "d13": return "assets/Graphics_svg/king_of_diamonds.svg";
-    case "d14": return "assets/Graphics_svg/ace_of_diamondss.svg";
+    case "d14": return "assets/Graphics_svg/ace_of_diamonds.svg";
 
     case "s2": return "assets/Graphics_svg/2_of_spades.svg";
     case "s3": return "assets/Graphics_svg/3_of_spades.svg";

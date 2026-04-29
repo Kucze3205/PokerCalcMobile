@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Poker Calc — Interactive Prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0d0d0d;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh;
+  font-family: 'Space Mono', monospace;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+@keyframes popIn { from{transform:scale(0.6);opacity:0} to{transform:scale(1);opacity:1} }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+const { useState, useRef, useEffect, useCallback, useContext, createContext } = React;
+
+/* ══════════════════════════════════════════════════
+   THEMES
+══════════════════════════════════════════════════ */
+const THEMES = {
+  felt: {
+    name: 'Felt',
+    body: '#090f0c',
+    bg: '#0b1812',
+    cardBg: '#0f2019',
+    dim: '#1a3028',
+    accent: '#2ecc71',
+    accentDim: '#1a4a30',
+    muted: '#3d6b52',
+    text: '#b8d8c4',
+    statusBg: '#050d08',
+    shellBorder: '#2a2a2a',
+    font: 'Space Mono',
+    ringLine: '#1e3428',
+    sheetBg: '#070e0a'
+  },
+  neon: {
+    name: 'Neon',
+    body: '#050510',
+    bg: '#08081a',
+    cardBg: '#0d0d22',
+    dim: '#1a1a38',
+    accent: '#00f5c4',
+    accentDim: '#00382d',
+    muted: '#3a3a7a',
+    text: '#c0c8ff',
+    statusBg: '#040410',
+    shellBorder: '#2a2a55',
+    font: 'Syne',
+    ringLine: '#1a1a44',
+    sheetBg: '#060614'
+  },
+  chalk: {
+    name: 'Chalk',
+    body: '#0f0f14',
+    bg: '#161620',
+    cardBg: '#1c1c2a',
+    dim: '#2a2a40',
+    accent: '#f0a500',
+    accentDim: '#3a2800',
+    muted: '#5a5a7a',
+    text: '#ddd8f0',
+    statusBg: '#0c0c18',
+    shellBorder: '#333348',
+    font: 'Space Mono',
+    ringLine: '#222238',
+    sheetBg: '#0e0e1c'
+  }
+};
+
+/* ══════════════════════════════════════════════════
+   CONTEXT
+══════════════════════════════════════════════════ */
+const ThemeCtx = createContext(THEMES.felt);
+
+const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const SUITS = [
+{ id: 'H', label: 'Kier', sym: '♥' },
+{ id: 'D', label: 'Karo', sym: '♦' },
+{ id: 'C', label: 'Trefl', sym: '♣' },
+{ id: 'S', label: 'Pik', sym: '♠' }];
+
+
+/* ══════════════════════════════════════════════════
+   RANK GRID — shown in sheet during suit gesture
+   Cells tagged with data-rank so elementFromPoint works
+══════════════════════════════════════════════════ */
+const KEYPAD_ROWS = [
+  ['A','J','Q','K'],
+  ['2','3','4'],
+  ['5','6','7'],
+  ['8','9','10'],
+];
+
+function RankGrid({ suit, hovRank }) {
+  const T = useContext(ThemeCtx);
+  return (
+    <div>
+      {/* suit indicator */}
+      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+        <div style={{
+          width:32, height:32, borderRadius:'50%',
+          background:T.accentDim, border:`2px solid ${T.accent}`,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:16, color:T.text,
+        }}>{suit.sym}</div>
+        <div style={{ fontSize:8, color:T.accent, letterSpacing:1 }}>
+          {suit.label} · SLIDE TO A RANK → RELEASE
+        </div>
+      </div>
+
+      {/* face row */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6, marginBottom:6 }}>
+        {KEYPAD_ROWS[0].map(r => <RankCell key={r} rank={r} hov={hovRank} />)}
+      </div>
+      {/* number rows */}
+      {KEYPAD_ROWS.slice(1).map((row, ri) => (
+        <div key={ri} style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6, marginBottom:6 }}>
+          {row.map(r => <RankCell key={r} rank={r} hov={hovRank} />)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RankCell({ rank, hov }) {
+  const T = useContext(ThemeCtx);
+  const active = hov === rank;
+  return (
+    <div
+      data-rank={rank}
+      style={{
+        height:44, borderRadius:9, pointerEvents:'none',
+        background: active ? T.accent : T.cardBg,
+        border:`1.5px solid ${active ? T.accent : T.dim}`,
+        display:'flex', alignItems:'center', justifyContent:'center',
+        fontSize: rank==='10'?13:17, fontWeight:700,
+        fontFamily:'Syne, Space Mono',
+        color: active ? '#000' : T.text,
+        transform: active ? 'scale(1.08)' : 'scale(1)',
+        transition:'transform 0.08s, background 0.08s',
+        boxShadow: active ? `0 0 14px ${T.accent}77` : '0 2px 5px #00000033',
+        userSelect:'none',
+      }}
+    >{rank}</div>
+  );
+}
+
+function getBubbleRanks(rank) {
+  const i = RANKS.indexOf(rank);
+  const lo = Math.max(0, i - 2);
+  const hi = Math.min(RANKS.length - 1, i + 2);
+  return RANKS.slice(lo, hi + 1);
+}
+
+function KeypadPicker({ suit, onSelect, onBack }) {
+  const T = useContext(ThemeCtx);
+  const [bubble, setBubble] = useState(null);   // { rank, keyEl }
+  const [hovRank, setHovRank] = useState(null);
+  const timerRef = useRef(null);
+  const bubbleRef = useRef(null);
+  const containerRef = useRef(null);
+
+  const startPress = useCallback((rank, e) => {
+    e.preventDefault();
+    timerRef.current = setTimeout(() => {
+      setBubble({ rank, keyEl: e.currentTarget });
+      setHovRank(rank);
+    }, 320);
+  }, []);
+
+  const cancelPress = useCallback(() => clearTimeout(timerRef.current), []);
+
+  const handlePointerMove = useCallback((e) => {
+    if (!bubble || !bubbleRef.current) return;
+    const rect = bubbleRef.current.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const items = getBubbleRanks(bubble.rank);
+    const itemW = rect.width / items.length;
+    const idx = Math.max(0, Math.min(items.length - 1, Math.floor(px / itemW)));
+    setHovRank(items[idx]);
+  }, [bubble]);
+
+  const handlePointerUp = useCallback((rank) => {
+    clearTimeout(timerRef.current);
+    if (bubble) {
+      if (hovRank) onSelect(suit, hovRank);
+      setBubble(null); setHovRank(null);
+    } else {
+      onSelect(suit, rank);
+    }
+  }, [bubble, hovRank, suit]);
+
+  const getBubblePos = () => {
+    if (!bubble?.keyEl || !containerRef.current) return {};
+    const kr = bubble.keyEl.getBoundingClientRect();
+    const cr = containerRef.current.getBoundingClientRect();
+    const items = getBubbleRanks(bubble.rank);
+    const bW = items.length * 48 + 10;
+    let left = kr.left - cr.left + kr.width / 2 - bW / 2;
+    left = Math.max(2, Math.min(cr.width - bW - 2, left));
+    const top = kr.top - cr.top - 62;
+    return { left, top, width: bW };
+  };
+
+  const KeyBtn = ({ rank }) => {
+    const pressed = bubble?.rank === rank;
+    return (
+      <div
+        onPointerDown={e => startPress(rank, e)}
+        onPointerUp={() => handlePointerUp(rank)}
+        onPointerLeave={cancelPress}
+        style={{
+          height: 44, borderRadius: 9,
+          background: pressed ? T.accentDim : T.cardBg,
+          border: `1.5px solid ${pressed ? T.accent : T.dim}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: rank === '10' ? 13 : 17, fontWeight: 700,
+          fontFamily: 'Syne, Space Mono',
+          color: pressed ? T.accent : T.text,
+          cursor: 'pointer', userSelect: 'none', touchAction: 'none',
+          transform: pressed ? 'scale(0.92)' : 'scale(1)',
+          transition: 'transform 0.1s, background 0.1s',
+          boxShadow: pressed ? `0 0 12px ${T.accent}55` : '0 2px 5px #00000044',
+        }}
+      >{rank}</div>
+    );
+  };
+
+  const bubbleItems = bubble ? getBubbleRanks(bubble.rank) : [];
+  const bubblePos   = bubble ? getBubblePos() : {};
+
+  return (
+    <div ref={containerRef} onPointerMove={handlePointerMove}
+      style={{ width:'100%', position:'relative', userSelect:'none' }}>
+
+      {/* suit + back */}
+      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+        <div style={{
+          width:32, height:32, borderRadius:'50%',
+          background:T.accentDim, border:`2px solid ${T.accent}`,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:16, color:T.text,
+        }}>{suit.sym}</div>
+        <div style={{ fontSize:8, color:T.muted, letterSpacing:1 }}>
+          {suit.label} · TAP OR HOLD A RANK
+        </div>
+        <div onClick={onBack} style={{ marginLeft:'auto', fontSize:8, color:T.muted, cursor:'pointer', letterSpacing:1 }}>← BACK</div>
+      </div>
+
+      {/* face row */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6, marginBottom:6 }}>
+        {KEYPAD_ROWS[0].map(r => <KeyBtn key={r} rank={r} />)}
+      </div>
+      {/* number rows */}
+      {KEYPAD_ROWS.slice(1).map((row, ri) => (
+        <div key={ri} style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6, marginBottom:6 }}>
+          {row.map(r => <KeyBtn key={r} rank={r} />)}
+        </div>
+      ))}
+
+      {/* BUBBLE */}
+      {bubble && (
+        <div ref={bubbleRef} style={{
+          position:'absolute', ...bubblePos,
+          background: T.cardBg,
+          border:`1.5px solid ${T.accent}`,
+          borderRadius:12, padding:'4px',
+          display:'flex', gap:2, zIndex:50,
+          boxShadow:`0 -4px 24px #000000aa, 0 0 0 1px ${T.dim}`,
+          animation:'popIn 0.12s ease',
+        }}>
+          {bubbleItems.map(r => (
+            <div key={r} style={{
+              width:44, height:44, borderRadius:8,
+              background: hovRank===r ? T.accent : 'transparent',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize: r==='10'?12:16, fontWeight:700,
+              fontFamily:'Syne, Space Mono',
+              color: hovRank===r ? '#000' : T.text,
+              transition:'background 0.08s',
+            }}>{r}</div>
+          ))}
+          {/* tail */}
+          <div style={{
+            position:'absolute', bottom:-7, left:'50%',
+            transform:'translateX(-50%) rotate(45deg)',
+            width:13, height:13,
+            background:T.cardBg,
+            border:`1.5px solid ${T.accent}`,
+            borderTop:'none', borderLeft:'none',
+          }}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════
+   (old InlineRingPicker — replaced by KeypadPicker)
+══════════════════════════════════════════════════ */
+function InlineRingPicker({ suit, onSelect, onBack, ringMode, width, height }) {
+  const T = useContext(ThemeCtx);
+  const [hovered, setHovered] = useState(null);
+  const areaRef = useRef(null);
+
+  // Centre of the picker area
+  const cx = width / 2;
+  const cy = height / 2 + 10;
+  const count = RANKS.length;
+
+  const sweepMap = { arc: 300, full: 360, fan: 200 };
+  const sweep = sweepMap[ringMode] || 300;
+  // Always open upward from center
+  const startAngle = -sweep / 2;
+  const R = Math.min(width, height) * 0.38;
+  const margin = 24;
+
+  const items = RANKS.map((rank, i) => {
+    const angleDeg = startAngle + sweep / (count - 1) * i;
+    const angleRad = angleDeg * Math.PI / 180;
+    let x = cx + R * Math.sin(angleRad);
+    let y = cy - R * Math.cos(angleRad);
+    x = Math.max(margin + 20, Math.min(width - margin - 20, x));
+    y = Math.max(margin + 20, Math.min(height - margin - 20, y));
+    return { rank, x, y };
+  });
+
+  const handlePointerMove = useCallback((e) => {
+    if (!areaRef.current) return;
+    const rect = areaRef.current.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    let best = null,bestDist = 999;
+    items.forEach((item) => {
+      const d = Math.hypot(px - item.x, py - item.y);
+      if (d < 44 && d < bestDist) {bestDist = d;best = item.rank;}
+    });
+    setHovered(best);
+  }, [items]);
+
+  const handlePointerUp = useCallback(() => {
+    if (hovered) onSelect(suit, hovered);
+  }, [hovered, suit]);
+
+  return (
+    <div ref={areaRef}
+    onPointerMove={handlePointerMove}
+    onPointerUp={handlePointerUp}
+    style={{ position: 'relative', width, height, userSelect: 'none', touchAction: 'none', fontFamily: "\"Space Mono\"" }}>
+      
+      {/* SVG lines + ring guide */}
+      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+        <circle cx={cx} cy={cy} r={R} fill="none" stroke={T.ringLine}
+        strokeWidth={1.5} opacity={0.5} strokeDasharray="4 5" />
+        {items.map((item) =>
+        <line key={item.rank} x1={cx} y1={cy} x2={item.x} y2={item.y}
+        stroke={hovered === item.rank ? T.accent : T.ringLine}
+        strokeWidth={hovered === item.rank ? 2 : 1} opacity={0.55} />
+        )}
+      </svg>
+
+      {/* Centre: active suit */}
+      <div style={{
+        position: 'absolute', left: cx - 28, top: cy - 28,
+        width: 56, height: 56, borderRadius: '50%',
+        background: T.accentDim, border: `2px solid ${T.accent}`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        boxShadow: `0 0 20px ${T.accent}44`, margin: "20px 0px 0px"
+      }}>
+        <span style={{ fontSize: 22, color: T.text, lineHeight: 1 }}>{suit.sym}</span>
+        <span style={{ fontSize: 8, color: T.muted, marginTop: 2 }}>{suit.label}</span>
+      </div>
+
+      {/* Rank nodes */}
+      {items.map((item) => {
+        const active = hovered === item.rank;
+        return (
+          <div key={item.rank} style={{
+            position: 'absolute',
+            left: item.x - 20, top: item.y - 20,
+            width: 40, height: 40, borderRadius: '50%',
+            background: active ? T.accent : T.cardBg,
+            border: `2px solid ${active ? T.accent : T.dim}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: T.font, fontSize: item.rank === '10' ? 10 : 13, fontWeight: 700,
+            color: active ? '#000' : T.text,
+            pointerEvents: 'none',
+            transform: active ? 'scale(1.3)' : 'scale(1)',
+            transition: 'transform 0.1s, background 0.1s',
+            boxShadow: active ? `0 0 14px ${T.accent}88` : 'none'
+          }}>{item.rank}</div>);
+
+      })}
+
+      {/* Back hint */}
+      <div onClick={onBack} style={{
+        position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)',
+        fontSize: 9, color: T.muted, letterSpacing: 1, cursor: 'pointer',
+        fontFamily: T.font
+      }}>← BACK</div>
+    </div>);
+
+}
+
+/* ══════════════════════════════════════════════════
+   CARD SLOT
+══════════════════════════════════════════════════ */
+function CardSlot({ card, size = 'md', onClick, cardStyle, active }) {
+  const T = useContext(ThemeCtx);
+  const sizes = { sm: [30, 42], md: [46, 62] };
+  const [w, h] = sizes[size];
+  const filled = !!card;
+
+  if (filled && cardStyle === 'physical') {
+    return (
+      <div onClick={onClick} style={{
+        width: w, height: h, borderRadius: 7,
+        background: '#f5f0e8',
+        boxShadow: active ? `0 0 0 2px ${T.accent}` : '2px 3px 10px #00000077',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', userSelect: 'none',
+        border: '1px solid #ccc'
+      }}>
+        <span style={{ fontSize: size === 'sm' ? 9 : 12, fontWeight: 700, color: '#111', lineHeight: 1 }}>{card.rank}</span>
+        <span style={{ fontSize: size === 'sm' ? 12 : 16, color: '#222', lineHeight: 1 }}>{card.suit.sym}</span>
+      </div>);
+
+  }
+
+  if (filled && cardStyle === 'minimal') {
+    return (
+      <div onClick={onClick} style={{
+        width: w, height: h, borderRadius: 7,
+        background: 'transparent',
+        border: `1px solid ${active ? T.accent : T.accent + '55'}`,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', userSelect: 'none'
+      }}>
+        <span style={{ fontSize: size === 'sm' ? 10 : 14, fontWeight: 700, color: T.accent, lineHeight: 1, fontFamily: T.font }}>{card.rank}{card.suit.sym}</span>
+      </div>);
+
+  }
+
+  return (
+    <div onClick={onClick} style={{
+      width: w, height: h, borderRadius: 7,
+      border: `2px ${filled ? 'solid' : 'dashed'} ${active ? T.accent : filled ? T.accent : T.muted}`,
+      background: active ? T.accentDim : filled ? T.dim : 'transparent',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      cursor: 'pointer', transition: 'all 0.15s', userSelect: 'none',
+      boxShadow: active ? `0 0 12px ${T.accent}66` : filled ? `0 0 10px ${T.accent}33` : 'none'
+    }}>
+      {filled ?
+      <>
+          <span style={{ fontSize: size === 'sm' ? 10 : 13, fontWeight: 700, color: T.accent, lineHeight: 1, fontFamily: T.font }}>{card.rank}</span>
+          <span style={{ fontSize: size === 'sm' ? 11 : 14, color: T.text, lineHeight: 1 }}>{card.suit.sym}</span>
+        </> :
+
+      <span style={{ fontSize: 18, color: active ? T.accent : T.muted, lineHeight: 1 }}>+</span>
+      }
+    </div>);
+
+}
+
+/* ══════════════════════════════════════════════════
+   SUIT BUTTON — fires onPickStart on pointerdown
+   (one continuous gesture: touch → slide → release)
+══════════════════════════════════════════════════ */
+function SuitButton({ suit, onPickStart, enabled }) {
+  const T = useContext(ThemeCtx);
+  const [pressing, setPressing] = useState(false);
+  return (
+    <div
+      onPointerDown={e => { if (enabled) { setPressing(true); onPickStart(suit, e); } }}
+      onPointerUp={() => setPressing(false)}
+      onPointerLeave={() => setPressing(false)}
+      style={{
+        background: pressing ? T.accentDim : T.cardBg,
+        border: `1.5px solid ${pressing ? T.accent : T.dim}`,
+        borderRadius: 10, padding: '14px 0',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        cursor: enabled ? 'pointer' : 'default',
+        userSelect: 'none', touchAction: 'none',
+        opacity: enabled ? 1 : 0.35,
+        transition: 'background 0.1s, border-color 0.1s, opacity 0.2s',
+        boxShadow: pressing ? `0 0 12px ${T.accent}55` : 'none',
+      }}>
+      <span style={{ fontSize: 24, color: T.text, lineHeight: 1 }}>{suit.sym}</span>
+      <span style={{ fontSize: 9, color: T.muted, marginTop: 4, letterSpacing: 0.5, fontFamily: T.font }}>{suit.label}</span>
+    </div>);
+
+}
+
+/* ══════════════════════════════════════════════════
+   PROB RING
+══════════════════════════════════════════════════ */
+function ProbRing({ pct }) {
+  const T = useContext(ThemeCtx);
+  const r = 28,stroke = 6;
+  const circ = 2 * Math.PI * r;
+  const dash = pct == null ? 0 : pct / 100 * circ;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <svg width={72} height={72} viewBox="0 0 72 72">
+        <circle cx={36} cy={36} r={r} fill="none" stroke={T.dim} strokeWidth={stroke} />
+        {pct != null &&
+        <circle cx={36} cy={36} r={r} fill="none" stroke={T.accent} strokeWidth={stroke}
+        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+        transform="rotate(-90 36 36)" style={{ transition: 'stroke-dasharray 0.5s' }} />
+        }
+        <text x={36} y={41} textAnchor="middle"
+        style={{ fontFamily: T.font, fontSize: pct != null ? 12 : 11, fill: pct != null ? T.accent : T.muted, fontWeight: 700 }}>
+          {pct != null ? `${pct}%` : '—'}
+        </text>
+      </svg>
+      <div style={{ fontSize: 8, color: T.muted, letterSpacing: 1, marginTop: -4, fontFamily: T.font }}>WIN %</div>
+    </div>);
+
+}
+
+function PokerCalc({ cardStyle }) {
+  const T = useContext(ThemeCtx);
+  const [handCards, setHandCards]     = useState([null, null]);
+  const [communityCards, setCommunity] = useState([null, null, null, null, null]);
+  const [players, setPlayers]         = useState(2);
+  const [filling, setFilling]         = useState(null);
+  const [activeSuit, setActiveSuit]   = useState(null);
+  const [hovRank, setHovRank]         = useState(null);
+  const [displayProb, setDisplayProb] = useState(null);
+  const gestureEl = useRef(null);
+
+  const filledHand = handCards.filter(Boolean).length;
+  useEffect(() => {
+    if (filledHand === 2 && displayProb == null) setDisplayProb(Math.floor(35 + Math.random() * 40));
+    if (filledHand < 2) setDisplayProb(null);
+  }, [filledHand]);
+
+  const handleSlotClick = (target, index) => {
+    setFilling({ target, index });
+    setActiveSuit(null);
+    setHovRank(null);
+  };
+
+  const handlePickStart = useCallback((suit, e) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    gestureEl.current = e.currentTarget;
+    setActiveSuit(suit);
+    setHovRank(null);
+  }, []);
+
+  const handlePointerMove = useCallback((e) => {
+    if (!activeSuit) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    setHovRank(el?.dataset?.rank || null);
+  }, [activeSuit]);
+
+  const handlePointerUp = useCallback((e) => {
+    if (!activeSuit) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const rank = el?.dataset?.rank;
+    if (rank && filling) {
+      const card = { suit: activeSuit, rank };
+      if (filling.target === 'hand')
+        setHandCards(prev => { const n=[...prev]; n[filling.index]=card; return n; });
+      else
+        setCommunity(prev => { const n=[...prev]; n[filling.index]=card; return n; });
+      setFilling(null);
+    }
+    setActiveSuit(null);
+    setHovRank(null);
+  }, [activeSuit, filling]);
+
+  const reset = () => {
+    setHandCards([null,null]); setCommunity([null,null,null,null,null]);
+    setFilling(null); setActiveSuit(null); setHovRank(null); setDisplayProb(null);
+  };
+
+  const sheetOpen = !!filling;
+  const SHEET_IDLE = 130;
+  const SHEET_SUIT = 200;
+  const SHEET_RANK = 390;
+  const sheetHeight = activeSuit ? SHEET_RANK : sheetOpen ? SHEET_SUIT : SHEET_IDLE;
+
+  return (
+    <div style={{ width:'100%', height:'100%', background:T.bg, display:'flex', flexDirection:'column', fontFamily:T.font, position:'relative', overflow:'hidden' }}>
+
+      {/* TOP BAR */}
+      <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px 8px', flexShrink:0 }}>
+        <div style={{ width:32, height:32, borderRadius:9, background:T.accentDim, border:`1.5px solid ${T.accent}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, flexShrink:0 }}>🎲</div>
+        <span style={{ color:T.text, fontSize:12, fontWeight:700, flex:1 }}>Poker Calc</span>
+        <div onClick={() => setPlayers(p => p===9?2:p+1)} style={{ display:'flex', alignItems:'center', gap:5, border:`1.5px solid ${T.accent}`, borderRadius:99, padding:'3px 10px', color:T.accent, fontSize:10, background:T.accentDim, cursor:'pointer' }}>
+          <span>👥</span><span>{players}</span><span>▾</span>
+        </div>
+        <div onClick={reset} style={{ width:30, height:30, borderRadius:8, border:'1.5px solid #922', color:'#c0392b', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, cursor:'pointer' }}>↺</div>
+      </div>
+
+      {/* SCROLL AREA */}
+      <div style={{ flex:1, overflowY:'auto', padding:'0 12px 8px' }}>
+        {/* YOUR HAND */}
+        <div style={{ background:T.cardBg, borderRadius:12, padding:'12px', marginBottom:10 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:10 }}>
+            <span style={{ fontSize:13 }}>✋</span>
+            <span style={{ fontSize:9, color:T.accent, letterSpacing:1 }}>YOUR HAND</span>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ display:'flex', gap:8 }}>
+              {handCards.map((card, i) => (
+                <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                  <CardSlot card={card} size="md" onClick={() => handleSlotClick('hand', i)} cardStyle={cardStyle} active={filling?.target==='hand' && filling?.index===i} />
+                  <span style={{ fontSize:8, color:T.muted }}>{i+1}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ flex:1, display:'flex', justifyContent:'center' }}>
+              <ProbRing pct={displayProb} />
+            </div>
+          </div>
+        </div>
+
+        {/* COMMUNITY CARDS */}
+        <div style={{ background:T.cardBg, borderRadius:12, padding:'12px', marginBottom:10 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:10 }}>
+            <span style={{ fontSize:13 }}>🃏</span>
+            <span style={{ fontSize:9, color:T.accent, letterSpacing:1 }}>COMMUNITY CARDS</span>
+          </div>
+          <div style={{ display:'flex', gap:6, justifyContent:'center' }}>
+            {communityCards.map((card, i) => (
+              <CardSlot key={i} card={card} size="sm" onClick={() => handleSlotClick('community', i)} cardStyle={cardStyle} active={filling?.target==='community' && filling?.index===i} />
+            ))}
+          </div>
+        </div>
+
+        <div style={{ textAlign:'center', fontSize:8, letterSpacing:0.5, marginTop:2, color:filling?T.accent:T.muted, animation:filling&&!activeSuit?'pulse 1.2s infinite':'none' }}>
+          {activeSuit ? 'SLIDE TO A RANK → RELEASE' : filling ? 'TOUCH & HOLD A SUIT BELOW' : 'TAP A CARD SLOT TO SELECT'}
+        </div>
+      </div>
+
+      {/* BOTTOM SHEET */}
+      <div onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} style={{
+        background:T.sheetBg, borderRadius:'16px 16px 0 0',
+        border:`1px solid ${T.dim}`, borderBottom:'none',
+        padding:'8px 12px 16px', flexShrink:0,
+        height:sheetHeight,
+        transition:'height 0.25s cubic-bezier(0.4,0,0.2,1)',
+        overflow:'hidden', display:'flex', flexDirection:'column',
+      }}>
+        <div style={{ width:36, height:3, background:T.dim, borderRadius:99, margin:'0 auto 10px', flexShrink:0 }} />
+
+        {activeSuit ? (
+          <RankGrid suit={activeSuit} hovRank={hovRank} />
+        ) : (
+          <div style={{ flex:1, display:'flex', flexDirection:'column', gap:8 }}>
+            {filling && (
+              <div style={{ fontSize:8, color:T.muted, textAlign:'center', letterSpacing:1 }}>
+                {filling.target==='hand' ? `HAND CARD ${filling.index+1}` : `COMMUNITY ${filling.index+1}`}
+                {' · '}<span style={{ color:T.accent, cursor:'pointer' }} onClick={() => setFilling(null)}>CANCEL</span>
+              </div>
+            )}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, flex:1 }}>
+              {SUITS.map(suit => (
+                <SuitButton key={suit.id} suit={suit} onPickStart={handlePickStart} enabled={!!filling} />
+              ))}
+            </div>
+            {!filling && (
+              <div style={{ fontSize:8, color:T.muted, textAlign:'center', letterSpacing:0.5 }}>TAP A CARD SLOT ABOVE TO ACTIVATE</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════
+   PHONE SHELL
+══════════════════════════════════════════════════ */
+function PhoneShell({ children, theme }) {
+  const T = THEMES[theme] || THEMES.felt;
+  return (
+    <div style={{
+      width: 390, height: 700,
+      borderRadius: 36, overflow: 'hidden',
+      border: `8px solid ${T.shellBorder}`,
+      background: T.bg, display: 'flex', flexDirection: 'column',
+      boxShadow: '0 24px 80px #000c',
+      transition: 'border-color 0.4s'
+    }}>
+      <div style={{ height: 36, background: T.statusBg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', flexShrink: 0, transition: 'background 0.4s' }}>
+        <span style={{ fontFamily: T.font, fontSize: 11, color: T.muted }}>9:41</span>
+        <div style={{ width: 20, height: 20, borderRadius: 10, background: '#1a1a1a' }} />
+        <span style={{ fontFamily: T.font, fontSize: 11, color: T.muted }}>▲▲▲</span>
+      </div>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {children}
+      </div>
+      <div style={{ height: 28, background: T.statusBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.4s' }}>
+        <div style={{ width: 100, height: 4, borderRadius: 2, background: T.dim }} />
+      </div>
+    </div>);
+
+}
+
+/* ══════════════════════════════════════════════════
+   ROOT + TWEAKS
+══════════════════════════════════════════════════ */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "felt",
+  "cardStyle": "physical",
+  "ringMode": "fan"
+}/*EDITMODE-END*/;
+
+function Root() {
+  const { TweaksPanel, TweakSection, TweakRadio, useTweaks } = window;
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const T = THEMES[tweaks.theme] || THEMES.felt;
+
+  const [scale, setScale] = useState(0.9);
+  useEffect(() => {
+    const calc = () => {
+      const s = Math.min((window.innerHeight - 48) / 716, (window.innerWidth - 48) / 406);
+      setScale(Math.min(s, 1));
+    };
+    calc();
+    window.addEventListener('resize', calc);
+    return () => window.removeEventListener('resize', calc);
+  }, []);
+
+  const frameW = 406 * scale;
+  const frameH = 716 * scale;
+
+  return (
+    <ThemeCtx.Provider value={T}>
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', minHeight: '100vh',
+        background: T.body, transition: 'background 0.4s'
+      }}>
+        <div style={{ width: frameW, height: frameH, position: 'relative', flexShrink: 0 }}>
+          <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', position: 'absolute', top: 0, left: 0, width: 406, height: 716 }}>
+            <PhoneShell theme={tweaks.theme}>
+              <PokerCalc cardStyle={tweaks.cardStyle} />
+            </PhoneShell>
+          </div>
+        </div>
+        <div style={{ marginTop: 12, color: '#3d4040', fontFamily: 'Space Mono', fontSize: 10, textAlign: 'center', lineHeight: 1.8 }}>
+          Tap slot → hold suit → slide to rank → release
+        </div>
+      </div>
+
+      <TweaksPanel>
+        <TweakSection label="Theme" />
+        <TweakRadio label="Color theme" value={tweaks.theme} onChange={(v) => setTweak('theme', v)}
+        options={[
+        { value: 'felt', label: '🟢 Felt' },
+        { value: 'neon', label: '🔵 Neon' },
+        { value: 'chalk', label: '🟡 Chalk' }]
+        } />
+
+        <TweakSection label="Card Style" />
+        <TweakRadio label="Filled cards" value={tweaks.cardStyle} onChange={(v) => setTweak('cardStyle', v)}
+        options={[
+        { value: 'ghost', label: 'Ghost' },
+        { value: 'physical', label: 'Physical' },
+        { value: 'minimal', label: 'Minimal' }]
+        } />
+
+      </TweaksPanel>
+    </ThemeCtx.Provider>);
+
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
+</script>
+</body>
+</html>

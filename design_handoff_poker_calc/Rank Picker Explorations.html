@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rank Picker Explorations</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #111; font-family: 'Space Mono', monospace; }
+@keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect } = React;
+
+const T = {
+  bg: '#0b1812', cardBg: '#0f2019', dim: '#1a3028',
+  accent: '#2ecc71', accentDim: '#1a4a30', muted: '#3d6b52',
+  text: '#b8d8c4', sheetBg: '#070e0a',
+};
+const RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const SUITS = [
+  { id:'H', label:'Kier',  sym:'♥' },
+  { id:'D', label:'Karo',  sym:'♦' },
+  { id:'C', label:'Trefl', sym:'♣' },
+  { id:'S', label:'Pik',   sym:'♠' },
+];
+
+/* shared header */
+const SheetHeader = ({ suit, label }) => (
+  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
+    <div style={{
+      width:36, height:36, borderRadius:'50%',
+      background: T.accentDim, border:`2px solid ${T.accent}`,
+      display:'flex', alignItems:'center', justifyContent:'center',
+      fontSize:18, color: T.text,
+    }}>{suit}</div>
+    <div>
+      <div style={{ fontSize:9, color:T.accent, letterSpacing:1 }}>{label}</div>
+      <div style={{ fontSize:8, color:T.muted }}>SELECT A RANK</div>
+    </div>
+  </div>
+);
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   A — GRID (current baseline for ref)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const GridPicker = () => {
+  const [sel, setSel] = useState(null);
+  return (
+    <div style={{ background:T.sheetBg, borderRadius:14, padding:14, width:'100%' }}>
+      <SheetHeader suit="♣" label="Trefl" />
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:5 }}>
+        {RANKS.map(r => (
+          <div key={r} onClick={() => setSel(r)} style={{
+            height:34, borderRadius:6,
+            background: sel===r ? T.accent : T.cardBg,
+            border:`1.5px solid ${sel===r ? T.accent : T.dim}`,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize: r==='10'?9:12, fontWeight:700,
+            color: sel===r ? '#000' : T.text,
+            cursor:'pointer', transition:'all 0.12s',
+            boxShadow: sel===r ? `0 0 10px ${T.accent}88` : 'none',
+          }}>{r}</div>
+        ))}
+      </div>
+      {sel && <div style={{ textAlign:'center', fontSize:9, color:T.accent, marginTop:8 }}>Selected: {sel}♣</div>}
+    </div>
+  );
+};
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   B — DRUM SCROLL (slot machine feel)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const DrumPicker = () => {
+  const [idx, setIdx] = useState(0);
+  const VISIBLE = 5;
+  const itemH = 44;
+
+  return (
+    <div style={{ background:T.sheetBg, borderRadius:14, padding:14, width:'100%' }}>
+      <SheetHeader suit="♠" label="Pik" />
+      <div style={{ position:'relative', height: itemH * VISIBLE, overflow:'hidden' }}>
+        {/* highlight band */}
+        <div style={{
+          position:'absolute', top: itemH * Math.floor(VISIBLE/2),
+          left:0, right:0, height:itemH,
+          background:`${T.accent}18`, border:`1px solid ${T.accent}44`,
+          borderRadius:8, zIndex:1, pointerEvents:'none',
+        }}/>
+        {/* items */}
+        <div style={{
+          position:'absolute', top: -(idx - Math.floor(VISIBLE/2)) * itemH,
+          left:0, right:0, transition:'top 0.2s ease',
+        }}>
+          {RANKS.map((r, i) => (
+            <div key={r} style={{
+              height:itemH, display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:18, fontWeight:700, fontFamily:'Syne',
+              color: i===idx ? T.accent : T.muted,
+              opacity: Math.abs(i-idx) > 2 ? 0.2 : 1 - Math.abs(i-idx)*0.25,
+              transform: `scale(${i===idx ? 1.15 : 1 - Math.abs(i-idx)*0.06})`,
+              transition:'all 0.2s', cursor:'pointer',
+            }} onClick={() => setIdx(i)}>{r}</div>
+          ))}
+        </div>
+      </div>
+      {/* nav arrows */}
+      <div style={{ display:'flex', justifyContent:'center', gap:24, marginTop:10 }}>
+        <div onClick={() => setIdx(i => Math.max(0,i-1))} style={{
+          width:36, height:36, borderRadius:'50%', background:T.cardBg,
+          border:`1.5px solid ${T.dim}`, display:'flex', alignItems:'center',
+          justifyContent:'center', color:T.text, cursor:'pointer', fontSize:14,
+        }}>↑</div>
+        <div style={{
+          flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:9, color:T.accent, letterSpacing:1,
+        }}>{RANKS[idx]}♠</div>
+        <div onClick={() => setIdx(i => Math.min(RANKS.length-1,i+1))} style={{
+          width:36, height:36, borderRadius:'50%', background:T.cardBg,
+          border:`1.5px solid ${T.dim}`, display:'flex', alignItems:'center',
+          justifyContent:'center', color:T.text, cursor:'pointer', fontSize:14,
+        }}>↓</div>
+      </div>
+    </div>
+  );
+};
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   C — SWIPE CAROUSEL (like iOS picker)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const CarouselPicker = () => {
+  const [idx, setIdx] = useState(6);
+  const cardW = 52, gap = 10;
+  const total = cardW + gap;
+  const W = 310;
+  const visible = Math.floor(W / total);
+  const offset = (W/2) - (idx * total) - cardW/2;
+
+  return (
+    <div style={{ background:T.sheetBg, borderRadius:14, padding:14, width:'100%' }}>
+      <SheetHeader suit="♥" label="Kier" />
+      <div style={{ position:'relative', overflow:'hidden', height:90 }}>
+        {/* focus indicator */}
+        <div style={{
+          position:'absolute', left:'50%', transform:'translateX(-50%)',
+          top:0, width:cardW+8, height:'100%',
+          border:`2px solid ${T.accent}`, borderRadius:10,
+          pointerEvents:'none', zIndex:2,
+          boxShadow:`0 0 16px ${T.accent}44`,
+        }}/>
+        <div style={{
+          display:'flex', gap, position:'absolute',
+          top:0, left:0,
+          transform:`translateX(${offset}px)`,
+          transition:'transform 0.22s cubic-bezier(0.4,0,0.2,1)',
+          alignItems:'center', height:'100%',
+        }}>
+          {RANKS.map((r, i) => (
+            <div key={r} onClick={() => setIdx(i)} style={{
+              width:cardW, flexShrink:0, height:72, borderRadius:9,
+              background: i===idx ? T.accentDim : T.cardBg,
+              border:`1.5px solid ${i===idx ? T.accent : T.dim}`,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:18, fontWeight:700, fontFamily:'Syne',
+              color: i===idx ? T.accent : T.muted,
+              cursor:'pointer',
+              opacity: Math.abs(i-idx)>3 ? 0.3 : 1,
+              transform:`scale(${i===idx ? 1 : 0.88})`,
+              transition:'all 0.2s',
+            }}>{r}</div>
+          ))}
+        </div>
+      </div>
+      <div style={{ display:'flex', gap:8, justifyContent:'center', marginTop:10 }}>
+        <div onClick={() => setIdx(i=>Math.max(0,i-1))} style={{
+          padding:'6px 16px', borderRadius:99, background:T.cardBg,
+          border:`1px solid ${T.dim}`, color:T.text, cursor:'pointer', fontSize:12,
+        }}>←</div>
+        <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, color:T.accent, letterSpacing:1 }}>{RANKS[idx]}♥</div>
+        <div onClick={() => setIdx(i=>Math.min(12,i+1))} style={{
+          padding:'6px 16px', borderRadius:99, background:T.cardBg,
+          border:`1px solid ${T.dim}`, color:T.text, cursor:'pointer', fontSize:12,
+        }}>→</div>
+      </div>
+    </div>
+  );
+};
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   D — BIG BUTTON KEYBOARD (numpad feel)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const KeypadPicker = () => {
+  const [sel, setSel] = useState(null);
+  // Layout: face cards + A on top row, numbers in a grid
+  const top = ['A','J','Q','K'];
+  const nums = ['2','3','4','5','6','7','8','9','10'];
+
+  const Btn = ({r}) => (
+    <div onClick={()=>setSel(r)} style={{
+      height:42, borderRadius:8,
+      background: sel===r ? T.accent : T.cardBg,
+      border:`1.5px solid ${sel===r ? T.accent : T.dim}`,
+      display:'flex', alignItems:'center', justifyContent:'center',
+      fontSize:14, fontWeight:700, fontFamily:'Syne',
+      color: sel===r ? '#000' : T.text,
+      cursor:'pointer', transition:'all 0.1s',
+      boxShadow: sel===r ? `0 0 12px ${T.accent}88` : 'none',
+    }}>{r}</div>
+  );
+
+  return (
+    <div style={{ background:T.sheetBg, borderRadius:14, padding:14, width:'100%' }}>
+      <SheetHeader suit="♦" label="Karo" />
+      {/* face row */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6, marginBottom:6 }}>
+        {top.map(r=><Btn key={r} r={r}/>)}
+      </div>
+      {/* number grid */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:6 }}>
+        {nums.map(r=><Btn key={r} r={r}/>)}
+      </div>
+      {sel && <div style={{ textAlign:'center', fontSize:9, color:T.accent, marginTop:10 }}>Selected: {sel}♦</div>}
+    </div>
+  );
+};
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   E — SLIDER TRACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const SliderPicker = () => {
+  const [idx, setIdx] = useState(0);
+  const trackRef = useRef(null);
+
+  const handlePointer = (e) => {
+    if (!trackRef.current) return;
+    const rect = trackRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const newIdx = Math.round((x / rect.width) * (RANKS.length-1));
+    setIdx(newIdx);
+  };
+
+  return (
+    <div style={{ background:T.sheetBg, borderRadius:14, padding:14, width:'100%' }}>
+      <SheetHeader suit="♣" label="Trefl" />
+      {/* big display */}
+      <div style={{
+        textAlign:'center', fontSize:48, fontWeight:800, fontFamily:'Syne',
+        color:T.accent, lineHeight:1, marginBottom:12,
+        textShadow:`0 0 24px ${T.accent}66`,
+      }}>{RANKS[idx]}</div>
+      {/* track */}
+      <div ref={trackRef}
+        onPointerDown={handlePointer} onPointerMove={e => e.buttons && handlePointer(e)}
+        style={{ position:'relative', height:32, cursor:'pointer', touchAction:'none' }}>
+        {/* rail */}
+        <div style={{ position:'absolute', top:14, left:0, right:0, height:4, background:T.dim, borderRadius:99 }}>
+          <div style={{ height:'100%', width:`${(idx/(RANKS.length-1))*100}%`, background:T.accent, borderRadius:99, transition:'width 0.1s' }}/>
+        </div>
+        {/* tick marks */}
+        {RANKS.map((_,i) => (
+          <div key={i} style={{
+            position:'absolute', top:10, left:`${(i/(RANKS.length-1))*100}%`,
+            width:2, height:12, background: i===idx ? T.accent : T.dim,
+            transform:'translateX(-50%)', borderRadius:1, transition:'background 0.1s',
+          }}/>
+        ))}
+        {/* thumb */}
+        <div style={{
+          position:'absolute', top:6, left:`${(idx/(RANKS.length-1))*100}%`,
+          width:20, height:20, borderRadius:'50%',
+          background:T.accent, border:`2px solid #000`,
+          transform:'translateX(-50%)', transition:'left 0.1s',
+          boxShadow:`0 0 12px ${T.accent}88`,
+        }}/>
+      </div>
+      {/* labels */}
+      <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
+        {['A','5','9','K'].map(r=><span key={r} style={{ fontSize:9, color:T.muted }}>{r}</span>)}
+      </div>
+    </div>
+  );
+};
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   F — CARD SPREAD (fan of physical cards)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const SpreadPicker = () => {
+  const [sel, setSel] = useState(null);
+  const [hov, setHov] = useState(null);
+  const n = RANKS.length;
+  const W = 286;
+
+  return (
+    <div style={{ background:T.sheetBg, borderRadius:14, padding:14, width:'100%' }}>
+      <SheetHeader suit="♠" label="Pik" />
+      <div style={{ position:'relative', height:100 }}>
+        {RANKS.map((r, i) => {
+          const active = sel===r || hov===r;
+          const baseX = (i / (n-1)) * (W - 30);
+          return (
+            <div key={r}
+              onClick={()=>setSel(r)}
+              onMouseEnter={()=>setHov(r)} onMouseLeave={()=>setHov(null)}
+              style={{
+                position:'absolute', left:baseX,
+                bottom: active ? 24 : 0,
+                width:30, height: active ? 72 : 60,
+                borderRadius:5,
+                background: active ? T.accentDim : '#f5f0e8',
+                border:`1.5px solid ${active ? T.accent : '#ccc'}`,
+                display:'flex', flexDirection:'column',
+                alignItems:'center', justifyContent:'center',
+                cursor:'pointer', zIndex: active ? 20 : i,
+                transition:'all 0.15s',
+                boxShadow: active ? `0 0 12px ${T.accent}88` : '1px 2px 6px #00000044',
+              }}>
+              <span style={{ fontSize:8, fontWeight:700, color: active ? T.accent : '#222' }}>{r}</span>
+              <span style={{ fontSize:11, color: active ? T.accent : '#333' }}>♠</span>
+            </div>
+          );
+        })}
+      </div>
+      {sel && <div style={{ textAlign:'center', fontSize:9, color:T.accent, marginTop:6 }}>Selected: {sel}♠</div>}
+    </div>
+  );
+};
+
+/* ── Root ── */
+function App() {
+  const { DesignCanvas, DCSection, DCArtboard } = window;
+
+  const Frame = ({ children, w=300, h=280 }) => (
+    <div style={{ width:w, background:T.bg, borderRadius:16, padding:12, display:'flex', flexDirection:'column' }}>
+      {children}
+    </div>
+  );
+
+  return (
+    <DesignCanvas title="Rank Picker — 6 Directions">
+      <DCSection id="pickers" title="Options">
+
+        <DCArtboard id="grid" label="A — Flat Grid" width={300} height={300}>
+          <Frame><GridPicker /></Frame>
+        </DCArtboard>
+
+        <DCArtboard id="drum" label="B — Drum Scroll" width={300} height={320}>
+          <Frame h={320}><DrumPicker /></Frame>
+        </DCArtboard>
+
+        <DCArtboard id="carousel" label="C — Swipe Carousel" width={300} height={280}>
+          <Frame><CarouselPicker /></Frame>
+        </DCArtboard>
+
+        <DCArtboard id="keypad" label="D — Big Keypad" width={300} height={360}>
+          <Frame h={360}><KeypadPicker /></Frame>
+        </DCArtboard>
+
+        <DCArtboard id="slider" label="E — Slider Track" width={300} height={280}>
+          <Frame><SliderPicker /></Frame>
+        </DCArtboard>
+
+        <DCArtboard id="spread" label="F — Card Spread" width={300} height={260}>
+          <Frame h={260}><SpreadPicker /></Frame>
+        </DCArtboard>
+
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
